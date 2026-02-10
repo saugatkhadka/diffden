@@ -121,7 +121,7 @@ function parseOptions(argv: string[]): HarnessOptions {
     if (arg.startsWith("--out=")) {
       const raw = arg.slice("--out=".length).trim();
       if (!raw) throw new Error("Missing value for --out");
-      outDir = resolve(raw);
+      outDir = raw;
       continue;
     }
     if (arg.startsWith("--scenario=")) {
@@ -141,7 +141,7 @@ function parseOptions(argv: string[]): HarnessOptions {
 
   if (!outDir) {
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    outDir = resolve(join(DEFAULT_OUT_ROOT, stamp));
+    outDir = join(DEFAULT_OUT_ROOT, stamp);
   }
 
   return { mode, sizes, outDir, keepTemp, scenario };
@@ -689,7 +689,12 @@ async function runSmokeViewport(options: {
     screenImage: imageGenerated ? screenImage : undefined,
     highlightsLog,
     checks,
-    passed: exitCode === 0 && checks.hasTitle && checks.hasSnapshotsHeader && checks.hasPreviewColumn,
+    passed:
+      exitCode === 0 &&
+      checks.hasTitle &&
+      checks.hasSnapshotsHeader &&
+      checks.hasPreviewColumn &&
+      checks.hasScenarioFileMarker,
     stderr: stderr || undefined,
   };
 }
@@ -751,7 +756,7 @@ async function runSmoke(options: HarnessOptions, rootDir: string) {
     JSON.stringify(
       {
         generatedAt: new Date().toISOString(),
-        command: process.argv.join(" "),
+        command: `bun bin/tui-harness.ts ${process.argv.slice(2).join(" ")}`.trim(),
         outputDir: options.outDir,
         scenario: options.scenario,
         results,
