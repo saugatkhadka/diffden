@@ -3,7 +3,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 interface Viewport {
   cols: number;
@@ -22,7 +22,8 @@ interface RunArtifacts {
   checks: {
     hasTitle: boolean;
     hasSnapshotsHeader: boolean;
-    hasPreviewHeader: boolean;
+    hasPreviewColumn: boolean;
+    hasScenarioFileMarker: boolean;
   };
   passed: boolean;
   stderr?: string;
@@ -33,22 +34,28 @@ interface HarnessOptions {
   sizes: Viewport[];
   outDir: string;
   keepTemp: boolean;
+  scenario: "basic" | "multi-file";
 }
 
 const DEFAULT_SIZES = ["80x24", "105x30", "140x40"];
 const DEFAULT_INTERACTIVE_SIZE = "120x36";
 const DEFAULT_OUT_ROOT = "artifacts/tui-harness";
+const DEFAULT_SCENARIO: HarnessOptions["scenario"] = "basic";
 
 function printHelp() {
   console.log(`DiffDen TUI Harness
 
 Usage:
-  bun bin/tui-harness.ts smoke [--sizes=80x24,105x30,140x40] [--out=artifacts/tui-harness/<name>] [--keep-temp]
-  bun bin/tui-harness.ts interactive [--size=120x36] [--keep-temp]
+  bun bin/tui-harness.ts smoke [--sizes=80x24,105x30,140x40] [--scenario=basic|multi-file] [--out=artifacts/tui-harness/<name>] [--keep-temp]
+  bun bin/tui-harness.ts interactive [--size=120x36] [--scenario=basic|multi-file] [--keep-temp]
 
 Modes:
   smoke        Run scripted PTY scenarios across multiple terminal sizes and save artifacts.
   interactive  Open a manual TUI session in a fixed-size PTY.
+
+Scenarios:
+  basic        Single watched file with edits + navigation.
+  multi-file   Three watched files with edits on each + navigation.
 `);
 }
 
@@ -72,6 +79,7 @@ function parseOptions(argv: string[]): HarnessOptions {
   let sizes = DEFAULT_SIZES.map(parseViewport);
   let outDir = "";
   let keepTemp = false;
+  let scenario: HarnessOptions["scenario"] = DEFAULT_SCENARIO;
 
   const args = [...argv];
   if (args.length > 0 && !args[0]!.startsWith("-")) {
@@ -116,6 +124,14 @@ function parseOptions(argv: string[]): HarnessOptions {
       outDir = resolve(raw);
       continue;
     }
+    if (arg.startsWith("--scenario=")) {
+      const raw = arg.slice("--scenario=".length).trim();
+      if (raw !== "basic" && raw !== "multi-file") {
+        throw new Error(`Invalid scenario "${raw}". Expected: basic|multi-file`);
+      }
+      scenario = raw;
+      continue;
+    }
     throw new Error(`Unknown flag "${arg}"`);
   }
 
@@ -128,7 +144,7 @@ function parseOptions(argv: string[]): HarnessOptions {
     outDir = resolve(join(DEFAULT_OUT_ROOT, stamp));
   }
 
-  return { mode, sizes, outDir, keepTemp };
+  return { mode, sizes, outDir, keepTemp, scenario };
 }
 
 function sh(value: string): string {
@@ -455,24 +471,41 @@ function buildSmokeCommand(args: {
   cols: number;
   rows: number;
   homeDir: string;
-  watchedFile: string;
+  scenarioContext: ScenarioContext;
   rawLog: string;
 }): string {
-  const watchCommand = `/watch ${args.watchedFile}`;
+  if (args.scenarioContext.scenario === "multi-file") {
+    return buildSmokeCommandMultiFile(args);
+  }
+  return buildSmokeCommandBasic(args);
+}
+
+interface ScenarioContext {
+  scenario: HarnessOptions["scenario"];
+  watchedFiles: string[];
+  projectDir: string;
+}
+
+function buildSmokeCommandBasic(args: {
+  cols: number;
+  rows: number;
+  homeDir: string;
+  scenarioContext: ScenarioContext;
+  rawLog: string;
+}): string {
+  const watchedFile = args.scenarioContext.watchedFiles[0]!;
   const appCommand = `stty cols ${args.cols} rows ${args.rows}; HOME=${sh(args.homeDir)} bun src/cli.ts`;
 
   return `
 set -euo pipefail
 (
   sleep 1.8
-  printf '%s\\n%s\\n' 'line 1' 'line 2' > ${sh(args.watchedFile)}
+  printf '%s\\n%s\\n' 'line 1' 'line 2' > ${sh(watchedFile)}
   sleep 1.2
-  printf '%s\\n%s\\n%s\\n' 'line 1' 'line 2' 'line 3' > ${sh(args.watchedFile)}
+  printf '%s\\n%s\\n%s\\n' 'line 1' 'line 2' 'line 3' > ${sh(watchedFile)}
 ) &
 {
-  sleep 0.7
-  printf '%s\\r' ${sh(watchCommand)}
-  sleep 2.8
+  sleep 3.2
   printf 'lll'
   sleep 0.5
   printf '\\t'
@@ -485,30 +518,122 @@ wait
 `.trim();
 }
 
+function buildSmokeCommandMultiFile(args: {
+  cols: number;
+  rows: number;
+  homeDir: string;
+  scenarioContext: ScenarioContext;
+  rawLog: string;
+}): string {
+  const [fileA, fileB, fileC] = args.scenarioContext.watchedFiles;
+  if (!fileA || !fileB || !fileC) {
+    throw new Error("multi-file scenario requires exactly 3 files");
+  }
+
+  const appCommand = `stty cols ${args.cols} rows ${args.rows}; HOME=${sh(args.homeDir)} bun src/cli.ts`;
+
+  return `
+set -euo pipefail
+(
+  sleep 2.4
+  printf '%s\\n%s\\n' '# alpha' 'step 1' > ${sh(fileA)}
+  sleep 0.7
+  printf '%s\\n%s\\n' '# beta' 'step 1' > ${sh(fileB)}
+  sleep 0.7
+  printf '%s\\n%s\\n' '# gamma' 'step 1' > ${sh(fileC)}
+  sleep 0.9
+  printf '%s\\n%s\\n%s\\n' '# alpha' 'step 1' 'step 2' > ${sh(fileA)}
+) &
+{
+  sleep 4.8
+  printf 'l'
+  sleep 0.35
+  printf 'j'
+  sleep 0.35
+  printf 'k'
+  sleep 0.35
+  printf 'l'
+  sleep 0.35
+  printf 'j'
+  sleep 0.35
+  printf '\\t'
+  sleep 0.35
+  printf 'o'
+  sleep 0.5
+  printf 'q'
+} | script -q -e -c ${sh(appCommand)} ${sh(args.rawLog)} >/dev/null
+wait
+`.trim();
+}
+
+async function buildScenarioContext(
+  projectDir: string,
+  scenario: HarnessOptions["scenario"],
+): Promise<ScenarioContext> {
+  if (scenario === "multi-file") {
+    const files = [
+      join(projectDir, "alpha.test.md"),
+      join(projectDir, "beta.test.md"),
+      join(projectDir, "gamma.test.md"),
+    ];
+    await writeFile(files[0]!, "# alpha\ninit\n", "utf8");
+    await writeFile(files[1]!, "# beta\ninit\n", "utf8");
+    await writeFile(files[2]!, "# gamma\ninit\n", "utf8");
+    return { scenario, watchedFiles: files, projectDir };
+  }
+
+  const single = join(projectDir, "demo-note.md");
+  await writeFile(single, "line 1\n", "utf8");
+  return { scenario, watchedFiles: [single], projectDir };
+}
+
+function projectSlug(dirPath: string): string {
+  return basename(resolve(dirPath)).replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+async function primeHomeConfig(homeDir: string, scenarioContext: ScenarioContext): Promise<void> {
+  const dataDir = join(homeDir, ".diffden");
+  const reposDir = join(dataDir, "repos");
+  const configPath = join(dataDir, "config.json");
+  await mkdir(reposDir, { recursive: true });
+
+  const config = {
+    projects: [
+      {
+        slug: projectSlug(scenarioContext.projectDir),
+        dir: scenarioContext.projectDir,
+        files: scenarioContext.watchedFiles.map((file) => basename(file)),
+      },
+    ],
+  };
+
+  await writeFile(configPath, JSON.stringify(config, null, 2) + "\n", "utf8");
+}
+
 async function runSmokeViewport(options: {
   rootDir: string;
   outDir: string;
   viewport: Viewport;
   keepTemp: boolean;
+  scenario: HarnessOptions["scenario"];
 }): Promise<RunArtifacts> {
   const viewportLabel = `${options.viewport.cols}x${options.viewport.rows}`;
   const homeDir = await mkdtemp(join(tmpdir(), "diffden-harness-home-"));
   const projectDir = await mkdtemp(join(tmpdir(), "diffden-harness-project-"));
-  const watchedFile = join(projectDir, "demo-note.md");
+  const scenarioContext = await buildScenarioContext(projectDir, options.scenario);
   const rawLog = join(options.outDir, `${viewportLabel}.raw.log`);
   const textLog = join(options.outDir, `${viewportLabel}.screen.txt`);
   const finalScreenLog = join(options.outDir, `${viewportLabel}.final-screen.txt`);
   const screenImage = join(options.outDir, `${viewportLabel}.screen.png`);
   const highlightsLog = join(options.outDir, `${viewportLabel}.highlights.txt`);
-
-  await writeFile(watchedFile, "line 1\n", "utf8");
+  await primeHomeConfig(homeDir, scenarioContext);
 
   const started = Date.now();
   const command = buildSmokeCommand({
     cols: options.viewport.cols,
     rows: options.viewport.rows,
     homeDir,
-    watchedFile,
+    scenarioContext,
     rawLog,
   });
 
@@ -535,7 +660,18 @@ async function runSmokeViewport(options: {
   const checks = {
     hasTitle: finalScreenText.includes("DiffDen"),
     hasSnapshotsHeader: finalScreenText.includes("Snapshots"),
-    hasPreviewHeader: finalScreenText.includes("Preview"),
+    hasPreviewColumn:
+      finalScreenText.includes("Preview") ||
+      finalScreenText.includes("Full Content") ||
+      finalScreenText.includes("Diff"),
+    hasScenarioFileMarker:
+      options.scenario !== "multi-file"
+        ? true
+        : options.viewport.cols < 105
+          ? true
+          : scenarioContext.watchedFiles
+              .map((file) => basename(file))
+              .some((marker) => finalScreenText.includes(marker)),
   };
 
   if (!options.keepTemp) {
@@ -553,7 +689,7 @@ async function runSmokeViewport(options: {
     screenImage: imageGenerated ? screenImage : undefined,
     highlightsLog,
     checks,
-    passed: exitCode === 0 && checks.hasTitle && checks.hasSnapshotsHeader && checks.hasPreviewHeader,
+    passed: exitCode === 0 && checks.hasTitle && checks.hasSnapshotsHeader && checks.hasPreviewColumn,
     stderr: stderr || undefined,
   };
 }
@@ -563,6 +699,7 @@ async function runSmoke(options: HarnessOptions, rootDir: string) {
   const results: RunArtifacts[] = [];
 
   console.log(`Running TUI harness in smoke mode for ${options.sizes.length} viewport(s)...`);
+  console.log(`Scenario: ${options.scenario}`);
   for (const viewport of options.sizes) {
     const label = `${viewport.cols}x${viewport.rows}`;
     console.log(`- ${label}`);
@@ -571,6 +708,7 @@ async function runSmoke(options: HarnessOptions, rootDir: string) {
       outDir: options.outDir,
       viewport,
       keepTemp: options.keepTemp,
+      scenario: options.scenario,
     });
     results.push(artifacts);
   }
@@ -582,6 +720,7 @@ async function runSmoke(options: HarnessOptions, rootDir: string) {
     "# DiffDen TUI Harness Report",
     "",
     `Generated: ${new Date().toISOString()}`,
+    `Scenario: ${options.scenario}`,
     "",
     "| Viewport | Exit | Checks | Result |",
     "| --- | --- | --- | --- |",
@@ -589,7 +728,8 @@ async function runSmoke(options: HarnessOptions, rootDir: string) {
       const checks = [
         result.checks.hasTitle ? "title" : "missing:title",
         result.checks.hasSnapshotsHeader ? "snapshots" : "missing:snapshots",
-        result.checks.hasPreviewHeader ? "preview" : "missing:preview",
+        result.checks.hasPreviewColumn ? "preview-col" : "missing:preview-col",
+        result.checks.hasScenarioFileMarker ? "scenario-files" : "missing:scenario-files",
       ].join(", ");
       return `| ${result.viewport} | ${result.exitCode} | ${checks} | ${result.passed ? "pass" : "fail"} |`;
     }),
@@ -613,6 +753,7 @@ async function runSmoke(options: HarnessOptions, rootDir: string) {
         generatedAt: new Date().toISOString(),
         command: process.argv.join(" "),
         outputDir: options.outDir,
+        scenario: options.scenario,
         results,
       },
       null,
@@ -642,16 +783,15 @@ async function runInteractive(options: HarnessOptions, rootDir: string) {
   const viewport = options.sizes[0]!;
   const homeDir = await mkdtemp(join(tmpdir(), "diffden-harness-home-"));
   const projectDir = await mkdtemp(join(tmpdir(), "diffden-harness-project-"));
-  const watchedFile = join(projectDir, "demo-note.md");
-  await writeFile(watchedFile, "line 1\n", "utf8");
+  const scenarioContext = await buildScenarioContext(projectDir, options.scenario);
+  await primeHomeConfig(homeDir, scenarioContext);
 
   console.log("Interactive harness session");
   console.log(`- viewport: ${viewport.cols}x${viewport.rows}`);
+  console.log(`- scenario: ${options.scenario}`);
   console.log(`- isolated HOME: ${homeDir}`);
-  console.log(`- demo file: ${watchedFile}`);
-  console.log("");
-  console.log("Suggested first command inside DiffDen:");
-  console.log(`/watch ${watchedFile}`);
+  console.log(`- demo files: ${scenarioContext.watchedFiles.join(", ")}`);
+  console.log("- files are preconfigured for watching in this harness HOME");
   console.log("");
 
   const appCommand = `stty cols ${viewport.cols} rows ${viewport.rows}; HOME=${sh(homeDir)} bun src/cli.ts`;

@@ -31,6 +31,9 @@ Useful options:
 # custom viewport matrix
 bun bin/tui-harness.ts smoke --sizes=80x24,100x30,140x42
 
+# multi-file scenario (tracks 3 files and mutates each)
+bun bin/tui-harness.ts smoke --scenario=multi-file
+
 # custom artifacts directory
 bun bin/tui-harness.ts smoke --out=artifacts/tui-harness/local-run
 ```
