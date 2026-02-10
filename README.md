@@ -38,6 +38,8 @@ bun bin/tui-harness.ts smoke --out=artifacts/tui-harness/local-run
 Artifacts are written per viewport:
 - `<size>.raw.log`: raw PTY transcript (ANSI intact)
 - `<size>.screen.txt`: ANSI-stripped text capture
+- `<size>.final-screen.txt`: reconstructed final terminal buffer
+- `<size>.screen.png`: image snapshot of the reconstructed terminal screen
 - `<size>.highlights.txt`: filtered lines useful for quick debugging
 - `summary.json` and `REPORT.md`: run-level summary
 

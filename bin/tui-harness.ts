@@ -16,6 +16,8 @@ interface RunArtifacts {
   durationMs: number;
   rawLog: string;
   textLog: string;
+  finalScreenLog: string;
+  screenImage?: string;
   highlightsLog: string;
   checks: {
     hasTitle: boolean;
@@ -143,9 +145,7 @@ function stripAnsi(input: string): string {
 }
 
 function cleanScriptOutput(raw: string): string {
-  const withoutMeta = raw.replace(/^Script started.*\n/m, "").replace(/\n?Script done.*$/m, "");
-
-  const deAnsi = stripAnsi(withoutMeta);
+  const deAnsi = stripAnsi(stripScriptMeta(raw));
   const normalized = deAnsi.replace(/\r/g, "\n");
 
   const compactLines: string[] = [];
@@ -156,6 +156,10 @@ function cleanScriptOutput(raw: string): string {
   }
 
   return compactLines.join("\n").trim() + "\n";
+}
+
+function stripScriptMeta(raw: string): string {
+  return raw.replace(/^Script started.*\n/m, "").replace(/\n?Script done.*$/m, "");
 }
 
 function extractHighlights(cleanText: string): string {
@@ -185,6 +189,242 @@ function extractHighlights(cleanText: string): string {
   }
 
   return (snippets.length > 0 ? snippets : ["(no highlight snippets matched)"]).join("\n") + "\n";
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function parseFinalScreenBuffer(raw: string, cols: number, rows: number): string[] {
+  const buffer = Array.from({ length: rows }, () => Array.from({ length: cols }, () => " "));
+  let row = 0;
+  let col = 0;
+  let savedRow = 0;
+  let savedCol = 0;
+
+  const clearAll = () => {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        buffer[r]![c] = " ";
+      }
+    }
+  };
+
+  const clearLineFromCursor = (mode: number) => {
+    if (mode === 2) {
+      for (let c = 0; c < cols; c++) buffer[row]![c] = " ";
+      return;
+    }
+    if (mode === 1) {
+      for (let c = 0; c <= col; c++) buffer[row]![c] = " ";
+      return;
+    }
+    for (let c = col; c < cols; c++) buffer[row]![c] = " ";
+  };
+
+  const putChar = (ch: string) => {
+    if (row >= 0 && row < rows && col >= 0 && col < cols) {
+      buffer[row]![col] = ch;
+    }
+    col += 1;
+    if (col >= cols) {
+      col = 0;
+      row = Math.min(rows - 1, row + 1);
+    }
+  };
+
+  let i = 0;
+  while (i < raw.length) {
+    const ch = raw[i]!;
+
+    if (ch === "\u001b") {
+      const next = raw[i + 1];
+      if (next === "[") {
+        let j = i + 2;
+        while (j < raw.length) {
+          const code = raw.charCodeAt(j);
+          if (code >= 0x40 && code <= 0x7e) break;
+          j += 1;
+        }
+        if (j >= raw.length) break;
+
+        const final = raw[j]!;
+        const payload = raw.slice(i + 2, j);
+        const payloadNoPrivate = payload.replace(/^\?/, "");
+        const parts =
+          payloadNoPrivate.length > 0
+            ? payloadNoPrivate.split(";").map((n) => Number.parseInt(n, 10) || 0)
+            : [];
+        const p1 = parts[0] ?? 0;
+        const p2 = parts[1] ?? 0;
+
+        switch (final) {
+          case "H":
+          case "f": {
+            const targetRow = (p1 || 1) - 1;
+            const targetCol = (p2 || 1) - 1;
+            row = clamp(targetRow, 0, rows - 1);
+            col = clamp(targetCol, 0, cols - 1);
+            break;
+          }
+          case "A":
+            row = clamp(row - (p1 || 1), 0, rows - 1);
+            break;
+          case "B":
+            row = clamp(row + (p1 || 1), 0, rows - 1);
+            break;
+          case "C":
+            col = clamp(col + (p1 || 1), 0, cols - 1);
+            break;
+          case "D":
+            col = clamp(col - (p1 || 1), 0, cols - 1);
+            break;
+          case "J":
+            if (p1 === 2 || p1 === 3 || p1 === 0) {
+              clearAll();
+            }
+            break;
+          case "K":
+            clearLineFromCursor(p1);
+            break;
+          case "s":
+            savedRow = row;
+            savedCol = col;
+            break;
+          case "u":
+            row = savedRow;
+            col = savedCol;
+            break;
+          default:
+            break;
+        }
+
+        i = j + 1;
+        continue;
+      }
+
+      if (next === "]") {
+        // OSC: consume until BEL or ST.
+        let j = i + 2;
+        while (j < raw.length) {
+          if (raw[j] === "\u0007") {
+            j += 1;
+            break;
+          }
+          if (raw[j] === "\u001b" && raw[j + 1] === "\\") {
+            j += 2;
+            break;
+          }
+          j += 1;
+        }
+        i = j;
+        continue;
+      }
+
+      if (next === "7") {
+        savedRow = row;
+        savedCol = col;
+        i += 2;
+        continue;
+      }
+      if (next === "8") {
+        row = savedRow;
+        col = savedCol;
+        i += 2;
+        continue;
+      }
+
+      i += 2;
+      continue;
+    }
+
+    if (ch === "\r") {
+      col = 0;
+      i += 1;
+      continue;
+    }
+    if (ch === "\n") {
+      row = Math.min(rows - 1, row + 1);
+      i += 1;
+      continue;
+    }
+    if (ch === "\b") {
+      col = Math.max(0, col - 1);
+      i += 1;
+      continue;
+    }
+    if (ch === "\t") {
+      const nextTabCol = Math.min(cols - 1, col + (8 - (col % 8)));
+      while (col < nextTabCol) {
+        putChar(" ");
+      }
+      i += 1;
+      continue;
+    }
+
+    if (ch >= " ") {
+      putChar(ch);
+    }
+    i += 1;
+  }
+
+  return buffer.map((line) => line.join("").replace(/\s+$/g, ""));
+}
+
+async function renderScreenImage(
+  screenLines: string[],
+  outputPath: string,
+  viewport: Viewport,
+): Promise<boolean> {
+  const screenText = screenLines.join("\n");
+  const pointSize = 16;
+  const cellWidthPx = 10;
+  const cellHeightPx = 20;
+  const paddingX = 12;
+  const paddingY = 14;
+  const canvasWidth = viewport.cols * cellWidthPx + paddingX * 2;
+  const canvasHeight = viewport.rows * cellHeightPx + paddingY * 2;
+
+  try {
+    const proc = spawn(
+      "convert",
+      [
+        "-size",
+        `${canvasWidth}x${canvasHeight}`,
+        "xc:#0d0d1a",
+        "-fill",
+        "#d7d7ff",
+        "-font",
+        "DejaVu-Sans-Mono",
+        "-pointsize",
+        String(pointSize),
+        "-gravity",
+        "NorthWest",
+        "-annotate",
+        `+${paddingX}+${paddingY + pointSize}`,
+        screenText,
+        outputPath,
+      ],
+      {
+        stdio: ["ignore", "ignore", "pipe"],
+      },
+    );
+
+    let stderr = "";
+    proc.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString("utf8");
+    });
+
+    const exitCode = await waitForExit(proc);
+    if (exitCode !== 0 && stderr.trim()) {
+      console.error(`Image render failed: ${stderr.trim()}`);
+    }
+    return exitCode === 0;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Image render failed: ${message}`);
+    return false;
+  }
 }
 
 function waitForExit(proc: ChildProcess): Promise<number> {
@@ -257,6 +497,8 @@ async function runSmokeViewport(options: {
   const watchedFile = join(projectDir, "demo-note.md");
   const rawLog = join(options.outDir, `${viewportLabel}.raw.log`);
   const textLog = join(options.outDir, `${viewportLabel}.screen.txt`);
+  const finalScreenLog = join(options.outDir, `${viewportLabel}.final-screen.txt`);
+  const screenImage = join(options.outDir, `${viewportLabel}.screen.png`);
   const highlightsLog = join(options.outDir, `${viewportLabel}.highlights.txt`);
 
   await writeFile(watchedFile, "line 1\n", "utf8");
@@ -280,15 +522,20 @@ async function runSmokeViewport(options: {
     rawText = "";
   }
 
-  const cleanText = cleanScriptOutput(rawText);
+  const rawNoMeta = stripScriptMeta(rawText);
+  const cleanText = cleanScriptOutput(rawNoMeta);
+  const finalScreenLines = parseFinalScreenBuffer(rawNoMeta, options.viewport.cols, options.viewport.rows);
+  const finalScreenText = finalScreenLines.join("\n") + "\n";
   const highlights = extractHighlights(cleanText);
   await writeFile(textLog, cleanText, "utf8");
+  await writeFile(finalScreenLog, finalScreenText, "utf8");
   await writeFile(highlightsLog, highlights, "utf8");
+  const imageGenerated = await renderScreenImage(finalScreenLines, screenImage, options.viewport);
 
   const checks = {
-    hasTitle: cleanText.includes("DiffDen"),
-    hasSnapshotsHeader: cleanText.includes("Snapshots"),
-    hasPreviewHeader: cleanText.includes("Preview"),
+    hasTitle: finalScreenText.includes("DiffDen"),
+    hasSnapshotsHeader: finalScreenText.includes("Snapshots"),
+    hasPreviewHeader: finalScreenText.includes("Preview"),
   };
 
   if (!options.keepTemp) {
@@ -302,6 +549,8 @@ async function runSmokeViewport(options: {
     durationMs,
     rawLog,
     textLog,
+    finalScreenLog,
+    screenImage: imageGenerated ? screenImage : undefined,
     highlightsLog,
     checks,
     passed: exitCode === 0 && checks.hasTitle && checks.hasSnapshotsHeader && checks.hasPreviewHeader,
@@ -350,6 +599,8 @@ async function runSmoke(options: HarnessOptions, rootDir: string) {
     ...results.flatMap((result) => [
       `- ${result.viewport} raw: ${result.rawLog}`,
       `- ${result.viewport} text: ${result.textLog}`,
+      `- ${result.viewport} final-screen: ${result.finalScreenLog}`,
+      `- ${result.viewport} image: ${result.screenImage ?? "(not generated)"}`,
       `- ${result.viewport} highlights: ${result.highlightsLog}`,
     ]),
     "",
