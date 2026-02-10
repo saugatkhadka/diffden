@@ -1,0 +1,25 @@
+{
+  "name": "track-scratchpad",
+  "version": "0.1.0",
+  "description": "TUI file version tracker — watches files like AGENT_SCRATCHPAD.md and stores every version using an internal git repo",
+  "module": "src/index.ts",
+  "type": "module",
+  "bin": {
+    "track-scratchpad": "./bin/cli.ts"
+  },
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun run --watch src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.1.77",
+    "chokidar": "^5.0.0",
+    "simple-git": "^3.30.0"
+  }
+}
