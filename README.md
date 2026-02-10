@@ -17,6 +17,36 @@ bun run dev
 bun run build
 ```
 
+## TUI harness (responsive + PTY)
+
+Run an automated smoke harness that drives the real terminal UI, records output, and checks multiple screen sizes:
+
+```bash
+bun run harness:tui
+```
+
+Useful options:
+
+```bash
+# custom viewport matrix
+bun bin/tui-harness.ts smoke --sizes=80x24,100x30,140x42
+
+# custom artifacts directory
+bun bin/tui-harness.ts smoke --out=artifacts/tui-harness/local-run
+```
+
+Artifacts are written per viewport:
+- `<size>.raw.log`: raw PTY transcript (ANSI intact)
+- `<size>.screen.txt`: ANSI-stripped text capture
+- `<size>.highlights.txt`: filtered lines useful for quick debugging
+- `summary.json` and `REPORT.md`: run-level summary
+
+For manual testing in a fixed-size PTY:
+
+```bash
+bun run harness:tui:interactive
+```
+
 ## CLI usage
 
 ```bash

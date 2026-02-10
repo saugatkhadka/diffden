@@ -20,6 +20,8 @@
     "typecheck": "tsc --noEmit",
     "dev": "bun run --watch src/cli.ts",
     "start": "bun dist/cli.js",
+    "harness:tui": "bun bin/tui-harness.ts smoke",
+    "harness:tui:interactive": "bun bin/tui-harness.ts interactive",
     "prepublishOnly": "npm run typecheck && npm run build"
   },
   "devDependencies": {
