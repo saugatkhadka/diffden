@@ -1,5 +1,5 @@
-#!/usr/bin/env bun
-import { startApp } from "../src/app.ts";
+#!/usr/bin/env node
+import { startApp } from "./app.ts";
 
 const args = process.argv.slice(2);
 const initialFile = args[0];

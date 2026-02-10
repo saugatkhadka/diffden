@@ -1,21 +1,30 @@
 {
   "name": "diffden",
   "version": "0.1.0",
-  "description": "DiffDen — TUI file version tracker that snapshots watched files into an internal git repo",
-  "module": "src/index.ts",
+  "description": "Terminal UI that snapshots watched files into an internal git repository",
   "type": "module",
+  "main": "./dist/index.js",
   "bin": {
-    "diffden": "./bin/cli.ts"
+    "diffden": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.17"
   },
   "scripts": {
-    "start": "bun run src/index.ts",
-    "dev": "bun run --watch src/index.ts"
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "dev": "bun run --watch src/cli.ts",
+    "start": "node dist/cli.js",
+    "prepublishOnly": "npm run typecheck && npm run build"
   },
   "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
+    "@types/node": "^22.13.10",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
   },
   "dependencies": {
     "@opentui/core": "^0.1.77",

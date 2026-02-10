@@ -1,5 +1,5 @@
 import simpleGit, { type SimpleGit, type LogResult, type DefaultLogFields } from "simple-git";
-import { existsSync, mkdirSync, copyFileSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, copyFileSync, writeFileSync } from "fs";
 import { join, basename } from "path";
 import { getRepoPath } from "./config.ts";
 
@@ -120,7 +120,6 @@ export async function restore(slug: string, hash: string, fileName: string, dest
   try {
     const content = await getContent(slug, hash, fileName);
     if (content === "(content not available)") return false;
-    const { writeFileSync } = require("fs") as typeof import("fs");
     writeFileSync(destPath, content);
     return true;
   } catch {
