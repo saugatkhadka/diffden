@@ -11,18 +11,12 @@ export interface PreviewPane {
   diffText: DiffRenderable;
 }
 
-function fileNameToFiletype(fileName: string | null): string | undefined {
-  if (!fileName) return undefined;
-  const idx = fileName.lastIndexOf(".");
-  if (idx < 0 || idx === fileName.length - 1) return undefined;
-  return fileName.slice(idx + 1);
-}
-
 export function createPreview(ctx: RenderContext): PreviewPane {
   const container = new BoxRenderable(ctx, {
     width: "100%",
     height: "100%",
     backgroundColor: "#0d0d1a",
+    overflow: "hidden",
   });
 
   const fullText = new TextRenderable(ctx, {
@@ -53,6 +47,7 @@ export function createPreview(ctx: RenderContext): PreviewPane {
     removedLineNumberBg: "#2a151a",
     width: "100%",
     height: "100%",
+    overflow: "hidden",
     visible: false,
   });
 
@@ -65,7 +60,6 @@ export function createPreview(ctx: RenderContext): PreviewPane {
 export function updatePreview(preview: PreviewPane, content: string, mode: "diff" | "full", fileName: string | null) {
   if (mode === "diff") {
     preview.diffText.diff = content;
-    preview.diffText.filetype = fileNameToFiletype(fileName);
     preview.diffText.visible = true;
     preview.fullText.visible = false;
     return;

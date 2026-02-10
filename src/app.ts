@@ -34,7 +34,7 @@ interface AppState {
   selectedSnapshot: SnapshotInfo | null;
   snapshots: SnapshotInfo[];
   previewMode: "diff" | "full";
-  previewExpanded: boolean;
+  expandedColumn: number | null;
   commandMode: boolean;
 }
 
@@ -56,7 +56,7 @@ export async function startApp(initialFilePath?: string) {
     selectedSnapshot: null,
     snapshots: [],
     previewMode: "diff",
-    previewExpanded: false,
+    expandedColumn: null,
     commandMode: false,
   };
 
@@ -97,7 +97,10 @@ export async function startApp(initialFilePath?: string) {
     title: " Projects ",
     backgroundColor: "#1a1a2e",
     flexGrow: 1,
-    minWidth: 15,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 18,
+    overflow: "hidden",
   });
 
   const fileBox = new BoxRenderable(renderer.root.ctx, {
@@ -106,7 +109,10 @@ export async function startApp(initialFilePath?: string) {
     title: " Files ",
     backgroundColor: "#1a1a2e",
     flexGrow: 1,
-    minWidth: 20,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 18,
+    overflow: "hidden",
   });
 
   const snapshotBox = new BoxRenderable(renderer.root.ctx, {
@@ -115,7 +121,10 @@ export async function startApp(initialFilePath?: string) {
     title: " Snapshots ",
     backgroundColor: "#1a1a2e",
     flexGrow: 1,
-    minWidth: 22,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 18,
+    overflow: "hidden",
   });
 
   const previewBox = new BoxRenderable(renderer.root.ctx, {
@@ -124,7 +133,10 @@ export async function startApp(initialFilePath?: string) {
     title: " Preview ",
     backgroundColor: "#0d0d1a",
     flexGrow: 1,
-    minWidth: 20,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 18,
+    overflow: "hidden",
   });
 
   // Create renderables inside each column
@@ -171,8 +183,32 @@ export async function startApp(initialFilePath?: string) {
   }
   const columnBoxes = [projectBox, fileBox, snapshotBox, previewBox];
 
-  function applyPreviewLayout() {
-    previewBox.flexGrow = state.previewExpanded ? 2 : 1;
+  function applyColumnLayout() {
+    const basePreviewGrow = state.previewMode === "diff" ? 2.5 : 1;
+    const baseGrows = [1, 1, 1, basePreviewGrow];
+
+    for (let i = 0; i < columnBoxes.length; i++) {
+      columnBoxes[i]!.flexGrow = baseGrows[i]!;
+    }
+
+    if (state.expandedColumn !== null) {
+      columnBoxes[state.expandedColumn]!.flexGrow = 3;
+    }
+  }
+
+  function columnLabel(col: number): string {
+    switch (col) {
+      case COL_PROJECTS:
+        return "Projects";
+      case COL_FILES:
+        return "Files";
+      case COL_SNAPSHOTS:
+        return "Snapshots";
+      case COL_PREVIEW:
+        return "Preview";
+      default:
+        return "Column";
+    }
   }
 
   // --- Functions to update UI ---
@@ -491,6 +527,7 @@ export async function startApp(initialFilePath?: string) {
       case "tab": {
         if (state.focusedColumn >= 2 && state.selectedSnapshot) {
           state.previewMode = state.previewMode === "diff" ? "full" : "diff";
+          applyColumnLayout();
           await refreshPreview();
           if (state.focusedColumn === COL_PREVIEW) {
             focusColumn(COL_PREVIEW);
@@ -509,9 +546,15 @@ export async function startApp(initialFilePath?: string) {
       }
 
       case "o": {
-        state.previewExpanded = !state.previewExpanded;
-        applyPreviewLayout();
-        setStatus(commandBar, state.previewExpanded ? "Preview expanded" : "Preview reset");
+        const focused = state.focusedColumn;
+        state.expandedColumn = state.expandedColumn === focused ? null : focused;
+        applyColumnLayout();
+        setStatus(
+          commandBar,
+          state.expandedColumn === null
+            ? "Layout reset"
+            : `${columnLabel(state.expandedColumn)} expanded`,
+        );
         setTimeout(() => setStatus(commandBar, ""), 1500);
         renderer.requestRender();
         break;
@@ -542,7 +585,7 @@ export async function startApp(initialFilePath?: string) {
   }
 
   // --- Initial render ---
-  applyPreviewLayout();
+  applyColumnLayout();
   await refreshProjects();
   focusColumn(COL_PROJECTS);
 
