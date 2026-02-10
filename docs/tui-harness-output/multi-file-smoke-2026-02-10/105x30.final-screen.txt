@@ -1,0 +1,30 @@
+ DiffDen
+┌──────────────────────────┐┌─ Snapshots — alpha.test.md ───────────────────┐┌─ Full Content ───────────┐
+│ ▶ alpha.test.md          ││   just now                                    ││# alpha                   │
+│   2 snaps · just now     ││   +1 -0                                       ││step 1                    │
+│   beta.test.md           ││ ▶ just now                                    ││                          │
+│   1 snap · just now      ││   +2 -0                                       ││                          │
+│   gamma.test.md          ││                                               ││                          │
+│   1 snap · just now      ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+│                          ││                                               ││                          │
+└──────────────────────────┘└───────────────────────────────────────────────┘└──────────────────────────┘
+[j/k] nav  [Enter/l] select  [Esc/h] back  [Tab] diff/full  [r] restore  [o] expand  [q] quit  [/] cmd Sn
