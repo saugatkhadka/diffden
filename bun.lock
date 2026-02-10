@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "track-agent-scratchpad",
+      "name": "diffden",
       "dependencies": {
         "@opentui/core": "^0.1.77",
         "chokidar": "^5.0.0",

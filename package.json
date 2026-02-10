@@ -1,11 +1,11 @@
 {
-  "name": "track-scratchpad",
+  "name": "diffden",
   "version": "0.1.0",
-  "description": "TUI file version tracker — watches files like AGENT_SCRATCHPAD.md and stores every version using an internal git repo",
+  "description": "DiffDen — TUI file version tracker that snapshots watched files into an internal git repo",
   "module": "src/index.ts",
   "type": "module",
   "bin": {
-    "track-scratchpad": "./bin/cli.ts"
+    "diffden": "./bin/cli.ts"
   },
   "scripts": {
     "start": "bun run src/index.ts",

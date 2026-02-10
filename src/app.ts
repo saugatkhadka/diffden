@@ -73,7 +73,7 @@ export async function startApp(initialFilePath?: string) {
 
   // Title bar
   const titleBar = new TextRenderable(renderer.root.ctx, {
-    content: " Track Scratchpad ",
+    content: " DiffDen ",
     fg: "#00d2ff",
     bg: "#16213e",
     height: 1,
@@ -231,9 +231,9 @@ export async function startApp(initialFilePath?: string) {
     updateProjectList(projectList, items);
 
     if (items.length === 0) {
-      titleBar.content = " Track Scratchpad — use /watch <path> to add a file ";
+      titleBar.content = " DiffDen — use /watch <path> to add a file ";
     } else {
-      titleBar.content = " Track Scratchpad ";
+      titleBar.content = " DiffDen ";
     }
   }
 

@@ -1,7 +1,7 @@
 import { homedir } from "os";
 import { join, basename, dirname, resolve } from "path";
 
-export const DATA_DIR = join(homedir(), ".track-scratchpad");
+export const DATA_DIR = join(homedir(), ".diffden");
 export const CONFIG_PATH = join(DATA_DIR, "config.json");
 export const REPOS_DIR = join(DATA_DIR, "repos");
 

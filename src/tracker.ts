@@ -24,8 +24,8 @@ async function getGit(slug: string): Promise<SimpleGit> {
   const isRepo = await git.checkIsRepo();
   if (!isRepo) {
     await git.init();
-    await git.addConfig("user.name", "track-scratchpad");
-    await git.addConfig("user.email", "track-scratchpad@local");
+    await git.addConfig("user.name", "diffden");
+    await git.addConfig("user.email", "diffden@local");
   }
   return git;
 }
