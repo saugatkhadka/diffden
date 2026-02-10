@@ -25,6 +25,8 @@ const COL_PROJECTS = 0;
 const COL_FILES = 1;
 const COL_SNAPSHOTS = 2;
 const COL_PREVIEW = 3;
+const WIDE_LAYOUT_BREAKPOINT = 120;
+const SNAPSHOT_DIFF_ONLY_BREAKPOINT = 105;
 
 interface AppState {
   config: AppConfig;
@@ -183,16 +185,71 @@ export async function startApp(initialFilePath?: string) {
   }
   const columnBoxes = [projectBox, fileBox, snapshotBox, previewBox];
 
+  function getVisibleColumnIndices(width: number, focus: number): number[] {
+    if (width >= WIDE_LAYOUT_BREAKPOINT) {
+      return [COL_PROJECTS, COL_FILES, COL_SNAPSHOTS, COL_PREVIEW];
+    }
+
+    if (width >= SNAPSHOT_DIFF_ONLY_BREAKPOINT) {
+      return focus <= COL_FILES
+        ? [COL_PROJECTS, COL_FILES, COL_SNAPSHOTS]
+        : [COL_FILES, COL_SNAPSHOTS, COL_PREVIEW];
+    }
+
+    // Compact layout for side-snapped terminals: keep snapshots + diff visible.
+    return [COL_SNAPSHOTS, COL_PREVIEW];
+  }
+
+  function coerceFocusForViewport() {
+    if (renderer.width < SNAPSHOT_DIFF_ONLY_BREAKPOINT && state.focusedColumn < COL_SNAPSHOTS) {
+      state.focusedColumn = COL_SNAPSHOTS;
+      snapshotList.focus();
+    }
+  }
+
   function applyColumnLayout() {
     const basePreviewGrow = state.previewMode === "diff" ? 2.5 : 1;
     const baseGrows = [1, 1, 1, basePreviewGrow];
+    const visibleIndices = getVisibleColumnIndices(renderer.width, state.focusedColumn);
+    const compactSnapshotDiffLayout = renderer.width < SNAPSHOT_DIFF_ONLY_BREAKPOINT;
+
+    if (compactSnapshotDiffLayout) {
+      baseGrows[COL_SNAPSHOTS] = 1;
+      baseGrows[COL_PREVIEW] = state.previewMode === "diff" ? 3.6 : 2.1;
+    }
 
     for (let i = 0; i < columnBoxes.length; i++) {
       columnBoxes[i]!.flexGrow = baseGrows[i]!;
     }
 
     if (state.expandedColumn !== null) {
-      columnBoxes[state.expandedColumn]!.flexGrow = 3;
+      const isExpandedDiffPreview =
+        state.expandedColumn === COL_PREVIEW && state.previewMode === "diff";
+
+      if (isExpandedDiffPreview) {
+        const otherVisibleCount = visibleIndices.filter((index) => index !== COL_PREVIEW).length;
+
+        // Ensure preview uses ~70% when expanded, and more on very small screens.
+        const targetPreviewShare =
+          renderer.width < 80
+            ? 0.85
+            : renderer.width < SNAPSHOT_DIFF_ONLY_BREAKPOINT
+              ? 0.8
+              : renderer.width < WIDE_LAYOUT_BREAKPOINT
+                ? 0.75
+                : 0.7;
+        const otherGrow = 1;
+        const previewGrow =
+          otherVisibleCount === 0
+            ? 1
+            : (targetPreviewShare * otherVisibleCount * otherGrow) / (1 - targetPreviewShare);
+
+        for (const index of visibleIndices) {
+          columnBoxes[index]!.flexGrow = index === COL_PREVIEW ? previewGrow : otherGrow;
+        }
+      } else {
+        columnBoxes[state.expandedColumn]!.flexGrow = Math.max(...baseGrows) + 2;
+      }
     }
   }
 
@@ -214,38 +271,16 @@ export async function startApp(initialFilePath?: string) {
   // --- Functions to update UI ---
 
   function updateColumnVisibility() {
-    const w = renderer.width;
-    const focus = state.focusedColumn;
-
-    if (w >= 120) {
-      // Wide: show all 4
-      for (const box of columnBoxes) box.visible = true;
-    } else if (w >= 80) {
-      // Medium: show 3
-      if (focus <= 1) {
-        projectBox.visible = true;
-        fileBox.visible = true;
-        snapshotBox.visible = true;
-        previewBox.visible = false;
-      } else {
-        projectBox.visible = false;
-        fileBox.visible = true;
-        snapshotBox.visible = true;
-        previewBox.visible = true;
-      }
-    } else {
-      // Small: show 2
-      for (const box of columnBoxes) box.visible = false;
-      columnBoxes[focus]!.visible = true;
-      if (focus < 3) {
-        columnBoxes[focus + 1]!.visible = true;
-      } else {
-        columnBoxes[focus - 1]!.visible = true;
-      }
+    coerceFocusForViewport();
+    applyColumnLayout();
+    const visibleIndices = new Set(getVisibleColumnIndices(renderer.width, state.focusedColumn));
+    for (let i = 0; i < columnBoxes.length; i++) {
+      columnBoxes[i]!.visible = visibleIndices.has(i);
     }
   }
 
   function updateFocusStyles() {
+    coerceFocusForViewport();
     for (let i = 0; i < columnBoxes.length; i++) {
       columnBoxes[i]!.borderColor = i === state.focusedColumn ? "#00d2ff" : "#333355";
     }
