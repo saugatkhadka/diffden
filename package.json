@@ -5,7 +5,7 @@
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "diffden": "./dist/cli.js"
+    "diffden": "dist/cli.js"
   },
   "files": [
     "dist",
