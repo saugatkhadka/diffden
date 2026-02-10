@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { startApp } from "./app.ts";
 
 const args = process.argv.slice(2);

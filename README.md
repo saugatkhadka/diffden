@@ -2,6 +2,8 @@
 
 DiffDen is a terminal UI app that watches files like `AGENT_SCRATCHPAD.md` and snapshots every change into an internal git repository.
 
+Requires Bun (`bun --version`).
+
 ## Local development
 
 ```bash

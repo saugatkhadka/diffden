@@ -12,13 +12,14 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=18.17"
+    "node": ">=18.17",
+    "bun": ">=1.1.0"
   },
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "dev": "bun run --watch src/cli.ts",
-    "start": "node dist/cli.js",
+    "start": "bun dist/cli.js",
     "prepublishOnly": "npm run typecheck && npm run build"
   },
   "devDependencies": {
