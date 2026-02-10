@@ -1,0 +1,59 @@
+{
+  "generatedAt": "2026-02-10T09:31:25.731Z",
+  "command": "/home/saugat/.bun/bin/bun /home/saugat/projects/track-agent-scratchpad/bin/tui-harness.ts smoke --scenario=multi-file --sizes=80x24,105x30,140x40 --out=docs/tui-harness-output/multi-file-smoke-2026-02-10",
+  "outputDir": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10",
+  "scenario": "multi-file",
+  "results": [
+    {
+      "viewport": "80x24",
+      "exitCode": 0,
+      "durationMs": 7500,
+      "rawLog": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/80x24.raw.log",
+      "textLog": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/80x24.screen.txt",
+      "finalScreenLog": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/80x24.final-screen.txt",
+      "screenImage": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/80x24.screen.png",
+      "highlightsLog": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/80x24.highlights.txt",
+      "checks": {
+        "hasTitle": true,
+        "hasSnapshotsHeader": true,
+        "hasPreviewColumn": true,
+        "hasScenarioFileMarker": true
+      },
+      "passed": true
+    },
+    {
+      "viewport": "105x30",
+      "exitCode": 0,
+      "durationMs": 7488,
+      "rawLog": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/105x30.raw.log",
+      "textLog": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/105x30.screen.txt",
+      "finalScreenLog": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/105x30.final-screen.txt",
+      "screenImage": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/105x30.screen.png",
+      "highlightsLog": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/105x30.highlights.txt",
+      "checks": {
+        "hasTitle": true,
+        "hasSnapshotsHeader": true,
+        "hasPreviewColumn": true,
+        "hasScenarioFileMarker": true
+      },
+      "passed": true
+    },
+    {
+      "viewport": "140x40",
+      "exitCode": 0,
+      "durationMs": 7490,
+      "rawLog": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/140x40.raw.log",
+      "textLog": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/140x40.screen.txt",
+      "finalScreenLog": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/140x40.final-screen.txt",
+      "screenImage": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/140x40.screen.png",
+      "highlightsLog": "/home/saugat/projects/track-agent-scratchpad/docs/tui-harness-output/multi-file-smoke-2026-02-10/140x40.highlights.txt",
+      "checks": {
+        "hasTitle": true,
+        "hasSnapshotsHeader": true,
+        "hasPreviewColumn": true,
+        "hasScenarioFileMarker": true
+      },
+      "passed": true
+    }
+  ]
+}
