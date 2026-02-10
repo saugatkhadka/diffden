@@ -16,7 +16,7 @@ export function createCommandBar(ctx: RenderContext): CommandBar {
   });
 
   const hints = new TextRenderable(ctx, {
-    content: "[j/k] nav  [Enter/l] select  [Esc/h] back  [Tab] diff/full  [r] restore  [o] open  [/] cmd  [q] quit",
+    content: "[j/k] nav  [Enter/l] select  [Esc/h] back  [Tab] diff/full  [r] restore  [o] expand  [/] cmd  [q] quit",
     fg: "#666680",
     bg: "#16213e",
     flexGrow: 1,
@@ -75,16 +75,16 @@ export function updateHints(bar: CommandBar, focusedColumn: number) {
 
   switch (focusedColumn) {
     case 0:
-      bar.hints.content = `${nav}  ${select}  [o] open  ${base}`;
+      bar.hints.content = `${nav}  ${select}  [o] expand  ${base}`;
       break;
     case 1:
-      bar.hints.content = `${nav}  ${select}  ${back}  [o] open  ${base}`;
+      bar.hints.content = `${nav}  ${select}  ${back}  [o] expand  ${base}`;
       break;
     case 2:
-      bar.hints.content = `${nav}  ${select}  ${back}  [Tab] diff/full  [r] restore  ${base}`;
+      bar.hints.content = `${nav}  ${select}  ${back}  [Tab] diff/full  [r] restore  [o] expand  ${base}`;
       break;
     case 3:
-      bar.hints.content = `${back}  [Tab] diff/full  [j/k] scroll  ${base}`;
+      bar.hints.content = `${back}  [Tab] diff/full  [j/k] scroll  [o] expand  ${base}`;
       break;
   }
 }

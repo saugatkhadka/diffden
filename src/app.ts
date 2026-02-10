@@ -34,6 +34,7 @@ interface AppState {
   selectedSnapshot: SnapshotInfo | null;
   snapshots: SnapshotInfo[];
   previewMode: "diff" | "full";
+  previewExpanded: boolean;
   commandMode: boolean;
 }
 
@@ -55,6 +56,7 @@ export async function startApp(initialFilePath?: string) {
     selectedSnapshot: null,
     snapshots: [],
     previewMode: "diff",
+    previewExpanded: false,
     commandMode: false,
   };
 
@@ -121,7 +123,7 @@ export async function startApp(initialFilePath?: string) {
     borderColor: "#333355",
     title: " Preview ",
     backgroundColor: "#0d0d1a",
-    flexGrow: 2,
+    flexGrow: 1,
     minWidth: 20,
   });
 
@@ -142,9 +144,7 @@ export async function startApp(initialFilePath?: string) {
   snapshotBox.add(snapshotList);
 
   const preview = createPreview(renderer.root.ctx);
-  preview.width = "100%";
-  preview.height = "100%";
-  previewBox.add(preview);
+  previewBox.add(preview.container);
 
   // Command bar
   const commandBar = createCommandBar(renderer.root.ctx);
@@ -161,9 +161,19 @@ export async function startApp(initialFilePath?: string) {
 
   renderer.root.add(rootBox);
 
-  // Column references for focus management
-  const columns = [projectList, fileList, snapshotList, preview] as const;
+  function getPreviewFocusable() {
+    return state.previewMode === "diff" ? preview.diffText : preview.fullText;
+  }
+
+  function getColumnRenderable(col: number) {
+    if (col === COL_PREVIEW) return getPreviewFocusable();
+    return [projectList, fileList, snapshotList][col] ?? null;
+  }
   const columnBoxes = [projectBox, fileBox, snapshotBox, previewBox];
+
+  function applyPreviewLayout() {
+    previewBox.flexGrow = state.previewExpanded ? 2 : 1;
+  }
 
   // --- Functions to update UI ---
 
@@ -212,7 +222,7 @@ export async function startApp(initialFilePath?: string) {
     state.focusedColumn = col;
 
     // Focus the renderable in that column
-    const target = columns[col];
+    const target = getColumnRenderable(col);
     if (target && "focus" in target) {
       (target as any).focus();
     }
@@ -261,27 +271,42 @@ export async function startApp(initialFilePath?: string) {
     if (!state.selectedProject || !state.selectedFileName) {
       updateSnapshotList(snapshotList, []);
       state.snapshots = [];
+      state.selectedSnapshot = null;
       return;
     }
     const snaps = await getLog(state.selectedProject.slug, state.selectedFileName);
     state.snapshots = snaps;
     updateSnapshotList(snapshotList, snaps);
     snapshotBox.title = ` Snapshots — ${state.selectedFileName} `;
+
+    if (snaps.length === 0) {
+      state.selectedSnapshot = null;
+      await refreshPreview();
+      return;
+    }
+
+    const selectedHash = state.selectedSnapshot?.hash;
+    const selectedIndex = selectedHash
+      ? snaps.findIndex((snap) => snap.hash === selectedHash)
+      : 0;
+    const nextIndex = selectedIndex >= 0 ? selectedIndex : 0;
+
+    snapshotList.setSelectedIndex(nextIndex);
   }
 
   async function refreshPreview() {
     if (!state.selectedProject || !state.selectedFileName || !state.selectedSnapshot) {
-      updatePreview(preview, "");
+      updatePreview(preview, "", state.previewMode, state.selectedFileName);
       return;
     }
     const snap = state.selectedSnapshot;
     if (state.previewMode === "diff") {
       const diff = await getDiff(state.selectedProject.slug, snap.hash, state.selectedFileName);
-      updatePreview(preview, diff);
+      updatePreview(preview, diff, "diff", state.selectedFileName);
       previewBox.title = " Diff ";
     } else {
       const content = await getContent(state.selectedProject.slug, snap.hash, state.selectedFileName);
-      updatePreview(preview, content);
+      updatePreview(preview, content, "full", state.selectedFileName);
       previewBox.title = " Full Content ";
     }
   }
@@ -297,7 +322,7 @@ export async function startApp(initialFilePath?: string) {
     state.selectedSnapshot = null;
     await refreshFiles();
     updateSnapshotList(snapshotList, []);
-    updatePreview(preview, "");
+    updatePreview(preview, "", state.previewMode, state.selectedFileName);
   });
 
   projectList.on("itemSelected", async (_index: number, option: any) => {
@@ -315,7 +340,7 @@ export async function startApp(initialFilePath?: string) {
     state.selectedFileName = item.fileName;
     state.selectedSnapshot = null;
     await refreshSnapshots();
-    updatePreview(preview, "");
+    await refreshPreview();
   });
 
   fileList.on("itemSelected", async (_index: number, option: any) => {
@@ -404,7 +429,7 @@ export async function startApp(initialFilePath?: string) {
         const slug = state.selectedProject?.slug;
         if (slug) {
           const instructions = getLinkInstructions(slug);
-          updatePreview(preview, instructions);
+          updatePreview(preview, instructions, "full", null);
           previewBox.title = " Link Instructions ";
           focusColumn(COL_PREVIEW);
         } else {
@@ -446,7 +471,7 @@ export async function startApp(initialFilePath?: string) {
         const col = state.focusedColumn;
         if (col < 3) {
           // Trigger selection on current column first
-          const current = columns[col];
+          const current = getColumnRenderable(col);
           if (current && "selectCurrent" in current) {
             (current as SelectRenderable).selectCurrent();
           }
@@ -467,6 +492,9 @@ export async function startApp(initialFilePath?: string) {
         if (state.focusedColumn >= 2 && state.selectedSnapshot) {
           state.previewMode = state.previewMode === "diff" ? "full" : "diff";
           await refreshPreview();
+          if (state.focusedColumn === COL_PREVIEW) {
+            focusColumn(COL_PREVIEW);
+          }
         }
         break;
       }
@@ -481,11 +509,11 @@ export async function startApp(initialFilePath?: string) {
       }
 
       case "o": {
-        const slug = state.selectedProject?.slug;
-        if (slug) {
-          openInEditor(slug, state.config.editor);
-          setStatus(commandBar, "Opened in editor");
-        }
+        state.previewExpanded = !state.previewExpanded;
+        applyPreviewLayout();
+        setStatus(commandBar, state.previewExpanded ? "Preview expanded" : "Preview reset");
+        setTimeout(() => setStatus(commandBar, ""), 1500);
+        renderer.requestRender();
         break;
       }
     }
@@ -514,6 +542,7 @@ export async function startApp(initialFilePath?: string) {
   }
 
   // --- Initial render ---
+  applyPreviewLayout();
   await refreshProjects();
   focusColumn(COL_PROJECTS);
 

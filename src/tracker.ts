@@ -99,7 +99,9 @@ export async function getDiff(slug: string, hash: string, fileName?: string): Pr
   } catch {
     // First commit — diff against empty tree
     try {
-      const diff = await git.diff(["4b825dc642cb6eb9a060e54bf899d8b2da2e7862", hash]);
+      const args = ["4b825dc642cb6eb9a060e54bf899d8b2da2e7862", hash];
+      if (fileName) args.push("--", fileName);
+      const diff = await git.diff(args);
       return diff || "(initial snapshot)";
     } catch {
       return "(no diff available)";
